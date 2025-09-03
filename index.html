@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Urban Observation Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // 克莱因蓝作为重点色
+                        primary: '#002FA7', // 克莱因蓝
+                        secondary: '#A7E6FF', // 浅蓝色
+                        accent: '#B5EAD7', // 浅绿色
+                        success: '#38B000', // 成功绿色
+                        warning: '#FF9F1C', // 警告色
+                        danger: '#E63946', // 危险红色
+                        neutral: '#5D6970', // 中性色
+                        light: '#F8F9FA', // 浅色背景
+                        dark: '#212529' // 深色文本
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .checklist-item {
+                @apply flex items-start gap-2 py-3 border-b border-gray-100 last:border-0;
+            }
+            .sub-note-item {
+                @apply pl-8 py-2 border-l-2 border-secondary/30 ml-3 mb-1 bg-secondary/5 rounded-r transition-all duration-200 hover:bg-secondary/10;
+            }
+            .section-card {
+                @apply bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300;
+            }
+            .btn-primary {
+                @apply bg-primary text-white px-4 py-3 rounded-lg hover:bg-primary/90 transition-all duration-200 flex items-center justify-center gap-2;
+            }
+            .btn-secondary {
+                @apply bg-secondary/30 text-primary px-4 py-3 rounded-lg hover:bg-secondary/50 transition-all duration-200 flex items-center justify-center gap-2;
+            }
+            .btn-accent {
+                @apply bg-accent/50 text-dark px-4 py-3 rounded-lg hover:bg-accent transition-all duration-200 flex items-center justify-center gap-2;
+            }
+            .photo-thumbnail {
+                @apply w-16 h-16 object-cover rounded-lg border border-secondary/30;
+            }
+            .context-menu {
+                @apply absolute bg-white shadow-lg rounded-lg py-1 z-50 w-48 hidden;
+            }
+            .context-menu-item {
+                @apply px-4 py-2 text-sm hover:bg-secondary/20 cursor-pointer flex items-center gap-2;
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-secondary/10 text-dark min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <i class="fa fa-city text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-dark">Site Visit Tool</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="staff-library-btn" class="btn-accent">
+                    <i class="fa fa-users"></i>
+                    <span class="hidden sm:inline">Staff Library</span>
+                </button>
+                <button id="add-category-btn" class="btn-secondary">
+                    <i class="fa fa-plus"></i>
+                    <span class="hidden sm:inline">Add Category</span>
+                </button>
+                <button id="save-btn" class="btn-primary">
+                    <i class="fa fa-save"></i>
+                </button>
+                <button id="export-btn" class="btn-secondary">
+                    <i class="fa fa-download"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+        <div class="grid grid-cols-1 gap-6">
+            <!-- Checklist and Notes Combined Section -->
+            <div class="section-card h-full flex flex-col">
+                <div class="bg-primary text-white p-4">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fa fa-check-square-o"></i>Observation Checklist
+                    </h2>
+                </div>
+                <div class="p-4 overflow-y-auto flex-grow scrollbar-hide" id="checklist-container">
+                    <!-- Checklist items will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 py-4 mt-6">
+        <div class="container mx-auto px-4 text-center text-neutral text-sm">
+            <p>Urban Observation Tool © 2023</p>
+        </div>
+    </footer>
+
+    <!-- Note Editor Modal -->
+    <div id="note-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-md max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300">
+            <div class="bg-primary text-white p-4 flex justify-between items-center rounded-t-xl">
+                <h3 class="font-bold text-lg" id="modal-title">Add Note</h3>
+                <button id="close-modal" class="text-white hover:text-gray-200">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4 flex-grow overflow-y-auto">
+                <!-- Photos Section -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-sm font-medium text-neutral">Photos</label>
+                        <div class="flex gap-2">
+                            <button id="take-photo-btn" class="text-primary hover:text-primary/80 text-sm flex items-center gap-1">
+                                <i class="fa fa-camera"></i> Take Photo
+                            </button>
+                            <button id="select-photo-btn" class="text-primary hover:text-primary/80 text-sm flex items-center gap-1">
+                                <i class="fa fa-image"></i> Gallery
+                            </button>
+                        </div>
+                    </div>
+                    <div id="photos-container" class="flex flex-wrap gap-2 min-h-[80px] border border-dashed border-secondary/50 rounded-lg p-2 bg-secondary/5">
+                        <div class="w-full h-full flex items-center justify-center text-neutral text-sm" id="no-photos-placeholder">
+                            No photos added yet
+                        </div>
+                    </div>
+                    <input type="file" id="photo-input" accept="image/*" capture="environment" class="hidden">
+                </div>
+                
+                <!-- Note Content -->
+                <div class="mb-4">
+                    <label for="modal-note-content" class="block text-sm font-medium text-neutral mb-1">Note Content</label>
+                    <textarea id="modal-note-content" rows="4" class="w-full px-3 py-2 border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all resize-none"></textarea>
+                </div>
+                
+                <!-- Coordinates (Read-only) -->
+                <div class="mb-2">
+                    <label class="block text-sm font-medium text-neutral mb-1">Location (Automatically recorded with photos)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="modal-latitude" placeholder="Latitude" class="flex-1 px-3 py-2 border border-secondary/50 rounded-lg bg-secondary/10" readonly>
+                        <input type="text" id="modal-longitude" placeholder="Longitude" class="flex-1 px-3 py-2 border border-secondary/50 rounded-lg bg-secondary/10" readonly>
+                    </div>
+                    <div class="text-xs text-neutral mt-1">
+                        Coordinates are recorded when photos are added
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-100 flex gap-2">
+                <button id="delete-note-btn" class="btn-secondary flex-1 text-danger border border-danger/20 bg-danger/5 hover:bg-danger/10">
+                    <i class="fa fa-trash-o"></i>
+                    <span>Delete</span>
+                </button>
+                <button id="save-note-btn" class="btn-primary flex-1">
+                    <i class="fa fa-save"></i>
+                    <span>Save</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Item Modal -->
+    <div id="edit-item-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-md flex flex-col transform scale-95 transition-transform duration-300">
+            <div class="bg-primary text-white p-4 flex justify-between items-center rounded-t-xl">
+                <h3 class="font-bold text-lg">Edit Item</h3>
+                <button id="close-edit-modal" class="text-white hover:text-gray-200">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4">
+                <div class="mb-4">
+                    <label for="item-name" class="block text-sm font-medium text-neutral mb-1">Item Name</label>
+                    <input type="text" id="item-name" class="w-full px-3 py-2 border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none">
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-100 flex gap-2">
+                <button id="cancel-edit-btn" class="btn-secondary flex-1">
+                    <i class="fa fa-times"></i>
+                    <span>Cancel</span>
+                </button>
+                <button id="save-edit-btn" class="btn-primary flex-1">
+                    <i class="fa fa-save"></i>
+                    <span>Save</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add New Item Modal -->
+    <div id="add-item-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-md flex flex-col transform scale-95 transition-transform duration-300">
+            <div class="bg-primary text-white p-4 flex justify-between items-center rounded-t-xl">
+                <h3 class="font-bold text-lg">Add New Item</h3>
+                <button id="close-add-modal" class="text-white hover:text-gray-200">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4">
+                <div class="mb-4">
+                    <label for="new-item-name" class="block text-sm font-medium text-neutral mb-1">Item Name</label>
+                    <input type="text" id="new-item-name" class="w-full px-3 py-2 border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none">
+                </div>
+                <div class="mb-2">
+                    <label class="block text-sm font-medium text-neutral mb-1">Position</label>
+                    <select id="new-item-position" class="w-full px-3 py-2 border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none">
+                        <option value="top">At the top</option>
+                        <option value="after" selected>After current item</option>
+                        <option value="bottom">At the bottom</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-100 flex gap-2">
+                <button id="cancel-add-btn" class="btn-secondary flex-1">
+                    <i class="fa fa-times"></i>
+                    <span>Cancel</span>
+                </button>
+                <button id="save-add-btn" class="btn-primary flex-1">
+                    <i class="fa fa-plus"></i>
+                    <span>Add</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add New Category Modal -->
+    <div id="add-category-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-md flex flex-col transform scale-95 transition-transform duration-300">
+            <div class="bg-primary text-white p-4 flex justify-between items-center rounded-t-xl">
+                <h3 class="font-bold text-lg">Add New Category</h3>
+                <button id="close-category-modal" class="text-white hover:text-gray-200">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4">
+                <div class="mb-4">
+                    <label for="new-category-name" class="block text-sm font-medium text-neutral mb-1">Category Name</label>
+                    <input type="text" id="new-category-name" class="w-full px-3 py-2 border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none">
+                </div>
+                <div class="mb-4">
+                    <label for="new-category-assigned" class="block text-sm font-medium text-neutral mb-1">Assigned To</label>
+                    <div class="flex gap-2">
+                        <select id="new-category-assigned-select" class="flex-1 px-3 py-2 border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none">
+                            <option value="">Select from staff library</option>
+                            <!-- Options will be populated from staff library -->
+                        </select>
+                        <button id="new-category-assigned-custom" class="btn-secondary px-3">
+                            <i class="fa fa-plus"></i>
+                        </button>
+                    </div>
+                    <input type="text" id="new-category-assigned-input" placeholder="Or enter a name" class="w-full mt-2 px-3 py-2 border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none hidden">
+                </div>
+                <div class="mb-2">
+                    <label for="new-category-icon" class="block text-sm font-medium text-neutral mb-1">Icon</label>
+                    <select id="new-category-icon" class="w-full px-3 py-2 border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none">
+                        <option value="fa-tree">Tree (fa-tree)</option>
+                        <option value="fa-road">Road (fa-road)</option>
+                        <option value="fa-male">Person (fa-male)</option>
+                        <option value="fa-building">Building (fa-building)</option>
+                        <option value="fa-thermometer-half">Thermometer (fa-thermometer-half)</option>
+                        <option value="fa-university">University (fa-university)</option>
+                        <option value="fa-users">Users (fa-users)</option>
+                        <option value="fa-flag">Flag (fa-flag)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-100 flex gap-2">
+                <button id="cancel-category-btn" class="btn-secondary flex-1">
+                    <i class="fa fa-times"></i>
+                    <span>Cancel</span>
+                </button>
+                <button id="save-category-btn" class="btn-primary flex-1">
+                    <i class="fa fa-plus"></i>
+                    <span>Add</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff Library Modal -->
+    <div id="staff-library-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-md max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300">
+            <div class="bg-primary text-white p-4 flex justify-between items-center rounded-t-xl">
+                <h3 class="font-bold text-lg">Staff Library</h3>
+                <button id="close-staff-modal" class="text-white hover:text-gray-200">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4 flex-grow overflow-y-auto">
+                <div class="mb-4">
+                    <div class="flex gap-2">
+                        <input type="text" id="new-staff-name" placeholder="Add new staff member" class="flex-1 px-3 py-2 border border-secondary/50 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none">
+                        <button id="add-staff-btn" class="btn-primary px-4">
+                            <i class="fa fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="staff-list" class="space-y-2">
+                    <!-- Staff list will be populated here -->
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-100">
+                <button id="close-staff-btn" class="btn-secondary w-full">
+                    <i class="fa fa-check"></i>
+                    <span>Done</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div id="camera-modal" class="fixed inset-0 bg-black z-50 flex flex-col opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="p-4 flex justify-between items-center bg-black/70 text-white">
+            <button id="close-camera" class="text-white hover:text-gray-300 p-2">
+                <i class="fa fa-times text-xl"></i>
+            </button>
+            <h3 class="font-bold">Take Photo</h3>
+            <div class="w-8"></div> <!-- Placeholder to balance the flex -->
+        </div>
+        <div class="flex-grow flex items-center justify-center relative">
+            <video id="camera-preview" class="max-w-full max-h-full object-contain"></video>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <!-- Camera overlay frame -->
+                <div class="w-[80%] h-[60%] border-2 border-white/50 rounded-lg"></div>
+            </div>
+        </div>
+        <div class="p-6 flex justify-center bg-black/70">
+            <button id="capture-photo-btn" class="w-16 h-16 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                <i class="fa fa-camera text-white text-2xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Context Menu for Item Actions -->
+    <div id="context-menu" class="context-menu">
+        <div class="context-menu-item" id="menu-edit">
+            <i class="fa fa-pencil text-neutral"></i> Edit Name
+        </div>
+        <div class="context-menu-item" id="menu-add">
+            <i class="fa fa-plus text-neutral"></i> Add New Item
+        </div>
+        <div class="context-menu-item" id="menu-move-up">
+            <i class="fa fa-arrow-up text-neutral"></i> Move Up
+        </div>
+        <div class="context-menu-item" id="menu-move-down">
+            <i class="fa fa-arrow-down text-neutral"></i> Move Down
+        </div>
+        <div class="context-menu-item text-danger" id="menu-delete">
+            <i class="fa fa-trash-o"></i> Delete
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-3 px-6 py-3 rounded-lg shadow-lg max-w-[80%]">
+        <i id="toast-icon" class="fa fa-check-circle text-xl"></i>
+        <span id="toast-message"></span>
+    </div>
+
+    <script>
+        // 人员库数据
+        let staffLibrary = [
+            "Person A",
+            "Person B",
+            "Person C",
+            "Person D",
+            "Person E",
+            "Person F",
+            "Person G"
+        ];
+
+        // 初始化检查项数据
+        let checklistData = [
+            {
+                id: 'cat-1',
+                title: "Landscape & Open Space",
+                icon: "fa-tree",
+                assignedTo: "Person A – Landscape Observer",
+                items: [
+                    { id: 'item-1-1', text: "Tree types, shrubs, and greenery" },
+                    { id: 'item-1-2', text: "Park and waterfront usage" },
+                    { id: 'item-1-3', text: "Topography (slopes, ridges, valleys)" },
+                    { id: 'item-1-4', text: "Soil condition (if visible)" },
+                    { id: 'item-1-5', text: "Sensory elements: smell, sound, visual quality" },
+                    { id: 'item-1-6', text: "Seating, shade, and spatial justice" }
+                ]
+            },
+            {
+                id: 'cat-2',
+                title: "Streetscape & Visual Quality",
+                icon: "fa-road",
+                assignedTo: "Person B – Streetscape Analyst",
+                items: [
+                    { id: 'item-2-1', text: "Active frontages and facades" },
+                    { id: 'item-2-2', text: "Human scale (building height vs street width)" },
+                    { id: 'item-2-3', text: "Urban furniture (benches, lighting)" },
+                    { id: 'item-2-4', text: "Window reflections and materials" },
+                    { id: 'item-2-5', text: "Surface materials and paving" },
+                    { id: 'item-2-6', text: "Cleanliness and maintenance" }
+                ]
+            },
+            {
+                id: 'cat-3',
+                title: "Movement & Accessibility",
+                icon: "fa-male",
+                assignedTo: "Person C – Mobility Mapper",
+                items: [
+                    { id: 'item-3-1', text: "Pedestrian paths, crossings, and walkways" },
+                    { id: 'item-3-2', text: "Footbridges, alleyways, and ramps" },
+                    { id: 'item-3-3', text: "Access points (stations, bus stops, taxi stands)" },
+                    { id: 'item-3-4', text: "Disabled access and physical barriers" },
+                    { id: 'item-3-5', text: "Vehicle movement patterns and peak loads" },
+                    { id: 'item-3-6', text: "Construction access and safety zones" }
+                ]
+            },
+            {
+                id: 'cat-4',
+                title: "Activities & Land Use",
+                icon: "fa-building",
+                assignedTo: "Person D – Activity Tracker",
+                items: [
+                    { id: 'item-4-1', text: "Types of activities (commercial, leisure, residential)" },
+                    { id: 'item-4-2', text: "User behavior (who uses what, when)" },
+                    { id: 'item-4-3', text: "Temporary vs permanent uses" },
+                    { id: 'item-4-4', text: "Informal uses (e.g., street vendors)" },
+                    { id: 'item-4-5', text: "Traffic-generating activities" },
+                    { id: 'item-4-6', text: "Land use mix and transitions" }
+                ]
+            },
+            {
+                id: 'cat-5',
+                title: "Micro-Climate Observation",
+                icon: "fa-thermometer-half",
+                assignedTo: "Person E – Climate Spotter",
+                items: [
+                    { id: 'item-5-1', text: "Heat exposure (sunny vs shaded areas)" },
+                    { id: 'item-5-2', text: "Wind flow and natural ventilation" },
+                    { id: 'item-5-3', text: "Thermal comfort zones" },
+                    { id: 'item-5-4', text: "Water drainage signs (e.g., puddles, slopes)" },
+                    { id: 'item-5-5', text: "Air quality indicators (e.g., smell, dust)" },
+                    { id: 'item-5-6', text: "Flood-prone areas or low-lying zones" }
+                ]
+            },
+            {
+                id: 'cat-6',
+                title: "Identity & Cultural Elements",
+                icon: "fa-university",
+                assignedTo: "Person F – Cultural Recorder",
+                items: [
+                    { id: 'item-6-1', text: "Heritage buildings and plaques" },
+                    { id: 'item-6-2', text: "Local businesses with historical value" },
+                    { id: 'item-6-3', text: "Public art or cultural markers" },
+                    { id: 'item-6-4', text: "Community gathering spots" },
+                    { id: 'item-6-5', text: "Vernacular architecture and materials" },
+                    { id: 'item-6-6', text: "Historical or listed buildings" }
+                ]
+            },
+            {
+                id: 'cat-7',
+                title: "Public Realm & Social Spaces",
+                icon: "fa-users",
+                assignedTo: "Person G – Social Space Surveyor",
+                items: [
+                    { id: 'item-7-1', text: "Community nodes and gathering areas" },
+                    { id: 'item-7-2', text: "Seating arrangements and usage" },
+                    { id: 'item-7-3', text: "Interaction patterns (group vs solo)" },
+                    { id: 'item-7-4', text: "Accessibility for all ages" },
+                    { id: 'item-7-5', text: "Safety and comfort features" },
+                    { id: 'item-7-6', text: "Exterior spaces and social activity zones" }
+                ]
+            }
+        ];
+
+        // DOM Elements
+        const checklistContainer = document.getElementById('checklist-container');
+        const noteModal = document.getElementById('note-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalNoteContent = document.getElementById('modal-note-content');
+        const modalLatitude = document.getElementById('modal-latitude');
+        const modalLongitude = document.getElementById('modal-longitude');
+        const closeModal = document.getElementById('close-modal');
+        const saveNoteBtn = document.getElementById('save-note-btn');
+        const deleteNoteBtn = document.getElementById('delete-note-btn');
+        const takePhotoBtn = document.getElementById('take-photo-btn');
+        const selectPhotoBtn = document.getElementById('select-photo-btn');
+        const photoInput = document.getElementById('photo-input');
+        const photosContainer = document.getElementById('photos-container');
+        const noPhotosPlaceholder = document.getElementById('no-photos-placeholder');
+        const saveBtn = document.getElementById('save-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const cameraModal = document.getElementById('camera-modal');
+        const closeCamera = document.getElementById('close-camera');
+        const cameraPreview = document.getElementById('camera-preview');
+        const capturePhotoBtn = document.getElementById('capture-photo-btn');
+        const contextMenu = document.getElementById('context-menu');
+        const menuEdit = document.getElementById('menu-edit');
+        const menuAdd = document.getElementById('menu-add');
+        const menuMoveUp = document.getElementById('menu-move-up');
+        const menuMoveDown = document.getElementById('menu-move-down');
+        const menuDelete = document.getElementById('menu-delete');
+        const editItemModal = document.getElementById('edit-item-modal');
+        const itemNameInput = document.getElementById('item-name');
+        const closeEditModal = document.getElementById('close-edit-modal');
+        const saveEditBtn = document.getElementById('save-edit-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const addItemModal = document.getElementById('add-item-modal');
+        const newItemNameInput = document.getElementById('new-item-name');
+        const newItemPositionSelect = document.getElementById('new-item-position');
+        const closeAddModal = document.getElementById('close-add-modal');
+        const saveAddBtn = document.getElementById('save-add-btn');
+        const cancelAddBtn = document.getElementById('cancel-add-btn');
+        const addCategoryBtn = document.getElementById('add-category-btn');
+        const addCategoryModal = document.getElementById('add-category-modal');
+        const newCategoryNameInput = document.getElementById('new-category-name');
+        const newCategoryAssignedSelect = document.getElementById('new-category-assigned-select');
+        const newCategoryAssignedInput = document.getElementById('new-category-assigned-input');
+        const newCategoryAssignedCustom = document.getElementById('new-category-assigned-custom');
+        const newCategoryIconSelect = document.getElementById('new-category-icon');
+        const closeCategoryModal = document.getElementById('close-category-modal');
+        const saveCategoryBtn = document.getElementById('save-category-btn');
+        const cancelCategoryBtn = document.getElementById('cancel-category-btn');
+        const staffLibraryBtn = document.getElementById('staff-library-btn');
+        const staffLibraryModal = document.getElementById('staff-library-modal');
+        const staffList = document.getElementById('staff-list');
+        const newStaffNameInput = document.getElementById('new-staff-name');
+        const addStaffBtn = document.getElementById('add-staff-btn');
+        const closeStaffModal = document.getElementById('close-staff-modal');
+        const closeStaffBtn = document.getElementById('close-staff-btn');
+        const toast = document.getElementById('toast');
+        const toastIcon = document.getElementById('toast-icon');
+        const toastMessage = document.getElementById('toast-message');
+
+        // State
+        let notes = {}; // 结构: { "itemId": [note1, note2, ...] } - 确保每条笔记的照片独立存储
+        let currentNoteId = null; // 当前项ID
+        let currentNoteIndex = null; // 正在编辑的笔记索引 (null表示新笔记)
+        let currentPhotos = []; // 当前正在编辑的笔记中的照片
+        let mediaStream = null;
+        let contextMenuTarget = null; // 上下文菜单的当前目标
+
+        // 生成唯一ID
+        function generateId(prefix) {
+            return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        }
+
+        // 初始化检查项列表
+        function initializeChecklist() {
+            checklistContainer.innerHTML = '';
+            
+            checklistData.forEach(category => {
+                const categoryEl = document.createElement('div');
+                categoryEl.className = 'mb-8 last:mb-0';
+                categoryEl.setAttribute('data-category-id', category.id);
+                
+                // 构建包含子笔记的项目HTML
+                let itemsHtml = '';
+                category.items.forEach((item, itemIndex) => {
+                    const itemNotes = notes[item.id] || [];
+                    const hasNotes = itemNotes.length > 0;
+                    
+                    // 构建子笔记HTML
+                    let subNotesHtml = '';
+                    if (hasNotes) {
+                        itemNotes.forEach((note, noteIndex) => {
+                            const hasPhotos = note.photos && note.photos.length > 0;
+                            subNotesHtml += `
+                                <div class="sub-note-item" data-item-id="${item.id}" data-note-index="${noteIndex}">
+                                    <div class="flex justify-between items-start mb-1">
+                                        <span class="text-xs text-neutral">
+                                            ${new Date(note.timestamp).toLocaleString()}
+                                        </span>
+                                        ${hasPhotos ? `
+                                            <span class="text-xs bg-warning/20 text-warning px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                <i class="fa fa-camera"></i> ${note.photos.length}
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                    <p class="text-sm mb-1 line-clamp-2">${note.content || 'No description'}</p>
+                                    <button class="edit-subnote text-primary text-xs flex items-center gap-1">
+                                        <i class="fa fa-pencil"></i> Edit
+                                    </button>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    itemsHtml += `
+                        <div class="checklist-item group" data-item-id="${item.id}">
+                            <input type="checkbox" id="${item.id}" class="mt-1 rounded text-primary focus:ring-primary/50"
+                                ${hasNotes ? 'checked' : ''}>
+                            <label for="${item.id}" class="flex-grow cursor-pointer note-label"
+                                data-item-id="${item.id}" data-item-text="${item.text}">${item.text}</label>
+                            <div class="flex items-center gap-1">
+                                ${hasNotes ? `
+                                    <span class="text-xs bg-success/20 text-success px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        <i class="fa fa-sticky-note-o"></i> ${itemNotes.length}
+                                    </span>
+                                ` : ''}
+                                <button class="context-menu-btn text-neutral opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                        data-category-id="${category.id}" 
+                                        data-item-id="${item.id}"
+                                        data-item-index="${itemIndex}">
+                                    <i class="fa fa-bars"></i>
+                                </button>
+                            </div>
+                            ${subNotesHtml}
+                        </div>
+                    `;
+                });
+                
+                categoryEl.innerHTML = `
+                    <div class="flex items-center gap-2 mb-3 cursor-pointer category-toggle" data-category="${category.id}">
+                        <i class="fa ${category.icon} text-primary text-lg"></i>
+                        <h3 class="font-bold text-lg">${category.title}</h3>
+                        <i class="fa fa-chevron-down text-xs text-neutral ml-auto transition-transform duration-300"></i>
+                    </div>
+                    <div class="text-sm text-neutral mb-3 pl-6">Assigned to: ${category.assignedTo}</div>
+                    <div class="category-items pl-6 space-y-1" data-category="${category.id}">
+                        ${itemsHtml}
+                    </div>
+                `;
+                
+                checklistContainer.appendChild(categoryEl);
+            });
+
+            // 为分类添加折叠功能
+            document.querySelectorAll('.category-toggle').forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const categoryId = toggle.getAttribute('data-category');
+                    const itemsEl = document.querySelector(`.category-items[data-category="${categoryId}"]`);
+                    const iconEl = toggle.querySelector('.fa-chevron-down');
+                    
+                    itemsEl.classList.toggle('hidden');
+                    iconEl.classList.toggle('rotate-180');
+                });
+            });
+
+            // 为标签添加笔记编辑功能
+            document.querySelectorAll('.note-label').forEach(label => {
+                label.addEventListener('click', (e) => {
+                    // 点击标签文本时防止复选框被切换
+                    e.preventDefault();
+                    const itemId = e.currentTarget.getAttribute('data-item-id');
+                    const itemText = e.currentTarget.getAttribute('data-item-text');
+                    openNoteEditor(itemId, itemText, null); // null表示新笔记
+                });
+            });
+
+            // 为子笔记添加编辑功能
+            document.querySelectorAll('.edit-subnote').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const itemId = e.currentTarget.closest('.sub-note-item').getAttribute('data-item-id');
+                    const noteIndex = parseInt(e.currentTarget.closest('.sub-note-item').getAttribute('data-note-index'));
+                    const itemText = document.querySelector(`.note-label[data-item-id="${itemId}"]`).getAttribute('data-item-text');
+                    
+                    openNoteEditor(itemId, itemText, noteIndex);
+                });
+            });
+
+            // 上下文菜单按钮
+            document.querySelectorAll('.context-menu-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showContextMenu(e, btn);
+                });
+            });
+
+            // 初始隐藏除第一个分类外的所有项目
+            document.querySelectorAll('.category-items:not([data-category="cat-1"])').forEach(el => {
+                el.classList.add('hidden');
+            });
+
+            // 点击其他地方关闭上下文菜单
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.context-menu-btn') && !e.target.closest('#context-menu')) {
+                    contextMenu.classList.add('hidden');
+                    contextMenuTarget = null;
+                }
+            });
+        }
+
+        // 初始化人员库
+        function initializeStaffLibrary() {
+            // 清空现有列表
+            staffList.innerHTML = '';
+            
+            // 按字母顺序排序
+            staffLibrary.sort((a, b) => a.localeCompare(b));
+            
+            // 添加人员到列表
+            staffLibrary.forEach((staff, index) => {
+                const staffEl = document.createElement('div');
+                staffEl.className = 'flex items-center justify-between p-2 bg-secondary/10 rounded-lg hover:bg-secondary/20 transition-colors';
+                staffEl.innerHTML = `
+                    <span>${staff}</span>
+                    <button class="delete-staff text-neutral hover:text-danger p-1" data-index="${index}">
+                        <i class="fa fa-times"></i>
+                    </button>
+                `;
+                staffList.appendChild(staffEl);
+            });
+            
+            // 添加删除人员事件
+            document.querySelectorAll('.delete-staff').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.getAttribute('data-index'));
+                    staffLibrary.splice(index, 1);
+                    initializeStaffLibrary();
+                    updateStaffSelectOptions();
+                    showToast('Staff member removed');
+                });
+            });
+            
+            // 如果没有人员，显示提示
+            if (staffLibrary.length === 0) {
+                staffList.innerHTML = `
+                    <div class="text-center text-neutral py-4">
+                        No staff members in library
+                    </div>
+                `;
+            }
+        }
+
+        // 更新人员选择下拉框选项
+        function updateStaffSelectOptions() {
+            // 保存当前选中值
+            const currentValue = newCategoryAssignedSelect.value;
+            
+            // 清空现有选项（保留第一个）
+            while (newCategoryAssignedSelect.options.length > 1) {
+                newCategoryAssignedSelect.remove(1);
+            }
+            
+            // 添加人员选项
+            staffLibrary.forEach(staff => {
+                const option = document.createElement('option');
+                option.value = staff;
+                option.textContent = staff;
+                newCategoryAssignedSelect.appendChild(option);
+            });
+            
+            // 恢复选中值
+            if (currentValue) {
+                newCategoryAssignedSelect.value = currentValue;
+            }
+        }
+
+        // 显示上下文菜单
+        function showContextMenu(event, target) {
+            contextMenuTarget = target;
+            
+            // 获取位置
+            const rect = target.getBoundingClientRect();
+            const x = rect.right;
+            const y = rect.top;
+            
+            // 设置位置
+            contextMenu.style.left = `${x}px`;
+            contextMenu.style.top = `${y}px`;
+            contextMenu.classList.remove('hidden');
+            
+            // 获取项目数据
+            const categoryId = target.getAttribute('data-category-id');
+            const itemId = target.getAttribute('data-item-id');
+            const itemIndex = parseInt(target.getAttribute('data-item-index'));
+            
+            // 获取分类
+            const category = checklistData.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            // 根据位置启用/禁用上下移动
+            menuMoveUp.classList.toggle('opacity-50', itemIndex === 0);
+            menuMoveUp.classList.toggle('pointer-events-none', itemIndex === 0);
+            
+            menuMoveDown.classList.toggle('opacity-50', itemIndex === category.items.length - 1);
+            menuMoveDown.classList.toggle('pointer-events-none', itemIndex === category.items.length - 1);
+        }
+
+        // 显示提示消息
+        function showToast(message, isSuccess = true) {
+            toastMessage.textContent = message;
+            toastIcon.className = isSuccess ? 'fa fa-check-circle text-success text-xl' : 'fa fa-exclamation-circle text-danger text-xl';
+            toast.className = `fixed bottom-4 left-1/2 transform -translate-x-1/2 translate-y-0 opacity-100 transition-all duration-300 flex items-center gap-3 px-6 py-3 rounded-lg shadow-lg max-w-[80%] ${isSuccess ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`;
+            
+            setTimeout(() => {
+                toast.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-3 px-6 py-3 rounded-lg shadow-lg max-w-[80%]';
+            }, 3000);
+        }
+
+        // 打开笔记编辑器模态框
+        function openNoteEditor(itemId, title, noteIndex) {
+            currentNoteId = itemId;
+            currentNoteIndex = noteIndex;
+            modalTitle.textContent = `Note: ${title}`;
+            currentPhotos = [];
+            
+            // 加载现有笔记（如果有）
+            if (noteIndex !== null && notes[itemId] && notes[itemId][noteIndex]) {
+                const note = notes[itemId][noteIndex];
+                modalNoteContent.value = note.content || '';
+                modalLatitude.value = note.latitude || '';
+                modalLongitude.value = note.longitude || '';
+                // 复制照片数组确保独立性
+                currentPhotos = JSON.parse(JSON.stringify(note.photos || []));
+                deleteNoteBtn.classList.remove('hidden');
+            } else {
+                modalNoteContent.value = '';
+                modalLatitude.value = '';
+                modalLongitude.value = '';
+                currentPhotos = [];
+                deleteNoteBtn.classList.add('hidden');
+            }
+            
+            // 更新照片显示
+            updatePhotosDisplay();
+            
+            // 显示模态框并添加动画
+            noteModal.classList.remove('opacity-0', 'pointer-events-none');
+            noteModal.querySelector('div').classList.remove('scale-95');
+            noteModal.querySelector('div').classList.add('scale-100');
+            
+            // 聚焦到文本区域
+            setTimeout(() => {
+                modalNoteContent.focus();
+            }, 300);
+        }
+
+        // 更新模态框中的照片显示
+        function updatePhotosDisplay() {
+            if (currentPhotos.length === 0) {
+                noPhotosPlaceholder.classList.remove('hidden');
+                return;
+            }
+            
+            noPhotosPlaceholder.classList.add('hidden');
+            
+            // 清除现有照片（保留占位符）
+            const existingPhotos = photosContainer.querySelectorAll('.photo-thumbnail-container');
+            existingPhotos.forEach(photo => photo.remove());
+            
+            // 添加当前照片
+            currentPhotos.forEach((photo, index) => {
+                const photoContainer = document.createElement('div');
+                photoContainer.className = 'photo-thumbnail-container relative';
+                photoContainer.innerHTML = `
+                    <img src="${photo.dataUrl}" alt="Observation photo ${index + 1}" class="photo-thumbnail">
+                    <button class="absolute -top-2 -right-2 bg-white rounded-full w-6 h-6 flex items-center justify-center shadow-md text-danger delete-photo"
+                            data-index="${index}">
+                        <i class="fa fa-times text-xs"></i>
+                    </button>
+                `;
+                photosContainer.appendChild(photoContainer);
+            });
+            
+            // 为删除按钮添加事件监听器
+            document.querySelectorAll('.delete-photo').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.getAttribute('data-index'));
+                    currentPhotos.splice(index, 1);
+                    updatePhotosDisplay();
+                });
+            });
+        }
+
+        // 关闭笔记编辑器模态框
+        function closeNoteEditor() {
+            noteModal.classList.add('opacity-0', 'pointer-events-none');
+            noteModal.querySelector('div').classList.remove('scale-100');
+            noteModal.querySelector('div').classList.add('scale-95');
+            currentNoteId = null;
+            currentNoteIndex = null;
+            currentPhotos = [];
+        }
+
+        // 保存笔记
+        function saveNote() {
+            if (!currentNoteId) return;
+            
+            const content = modalNoteContent.value.trim();
+            
+            // 至少需要内容或照片
+            if (!content && currentPhotos.length === 0) {
+                showToast('Please enter note content or add photos', false);
+                return;
+            }
+            
+            // 创建笔记对象
+            const note = {
+                content,
+                // 深拷贝照片数组确保独立性
+                photos: JSON.parse(JSON.stringify(currentPhotos)),
+                timestamp: new Date().toISOString()
+            };
+            
+            // 添加坐标（如果有）
+            if (modalLatitude.value && modalLongitude.value) {
+                note.latitude = modalLatitude.value;
+                note.longitude = modalLongitude.value;
+            }
+            
+            // 初始化笔记数组（如果不存在）
+            if (!notes[currentNoteId]) {
+                notes[currentNoteId] = [];
+            }
+            
+            // 更新或添加笔记
+            if (currentNoteIndex !== null) {
+                notes[currentNoteId][currentNoteIndex] = note;
+            } else {
+                notes[currentNoteId].push(note);
+            }
+            
+            // 刷新检查项列表以显示更新
+            initializeChecklist();
+            
+            closeNoteEditor();
+            showToast('Note saved successfully');
+        }
+
+        // 删除笔记
+        function deleteNote() {
+            if (!currentNoteId || currentNoteIndex === null || !notes[currentNoteId] || !notes[currentNoteId][currentNoteIndex]) return;
+            
+            if (confirm('Are you sure you want to delete this note?')) {
+                notes[currentNoteId].splice(currentNoteIndex, 1);
+                
+                // 如果没有笔记了，删除数组
+                if (notes[currentNoteId].length === 0) {
+                    delete notes[currentNoteId];
+                }
+                
+                // 刷新检查项列表
+                initializeChecklist();
+                
+                closeNoteEditor();
+                showToast('Note deleted');
+            }
+        }
+
+        // 获取当前坐标
+        function getCurrentCoordinates() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject('Geolocation is not supported by your device');
+                    return;
+                }
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const coordinates = {
+                            latitude: position.coords.latitude.toFixed(6),
+                            longitude: position.coords.longitude.toFixed(6)
+                        };
+                        resolve(coordinates);
+                    },
+                    (error) => {
+                        let message = 'Failed to get location';
+                        switch(error.code) {
+                            case 1:
+                                message = 'Please enable location permissions';
+                                break;
+                            case 2:
+                                message = 'Location unavailable';
+                                break;
+                            case 3:
+                                message = 'Timeout while getting location';
+                                break;
+                        }
+                        reject(message);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            });
+        }
+
+        // 打开相机
+        async function openCamera() {
+            try {
+                // 请求相机访问权限
+                mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment', // 使用后置摄像头
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                
+                // 设置视频源
+                cameraPreview.srcObject = mediaStream;
+                
+                // 显示相机模态框
+                cameraModal.classList.remove('opacity-0', 'pointer-events-none');
+                
+                // 视频准备好后播放
+                cameraPreview.onloadedmetadata = () => {
+                    cameraPreview.play();
+                };
+            } catch (error) {
+                console.error('Camera error:', error);
+                showToast('Failed to access camera. Please check permissions.', false);
+            }
+        }
+
+        // 关闭相机
+        function closeCameraModal() {
+            cameraModal.classList.add('opacity-0', 'pointer-events-none');
+            
+            // 停止媒体流
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+        }
+
+        // 从相机捕获照片
+        async function capturePhoto() {
+            try {
+                // 首先获取当前坐标
+                const coordinates = await getCurrentCoordinates();
+                
+                // 创建画布捕获帧
+                const canvas = document.createElement('canvas');
+                canvas.width = cameraPreview.videoWidth;
+                canvas.height = cameraPreview.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
+                
+                // 转换为data URL
+                const dataUrl = canvas.toDataURL('image/jpeg');
+                
+                // 添加到当前照片
+                currentPhotos.push({
+                    dataUrl,
+                    timestamp: new Date().toISOString(),
+                    latitude: coordinates.latitude,
+                    longitude: coordinates.longitude
+                });
+                
+                // 更新模态框中的坐标
+                modalLatitude.value = coordinates.latitude;
+                modalLongitude.value = coordinates.longitude;
+                
+                // 更新显示
+                updatePhotosDisplay();
+                
+                // 关闭相机
+                closeCameraModal();
+                
+                showToast('Photo captured with location');
+            } catch (error) {
+                console.error('Capture error:', error);
+                showToast(`Error: ${error}`, false);
+            }
+        }
+
+        // 从图库选择照片
+        async function selectPhoto() {
+            try {
+                // 首先获取当前坐标
+                const coordinates = await getCurrentCoordinates();
+                
+                // 触发文件输入
+                photoInput.onchange = async (e) => {
+                    if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        
+                        // 转换为data URL
+                        const dataUrl = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = (event) => resolve(event.target.result);
+                            reader.readAsDataURL(file);
+                        });
+                        
+                        // 添加到当前照片
+                        currentPhotos.push({
+                            dataUrl,
+                            timestamp: new Date().toISOString(),
+                            latitude: coordinates.latitude,
+                            longitude: coordinates.longitude
+                        });
+                        
+                        // 更新模态框中的坐标
+                        modalLatitude.value = coordinates.latitude;
+                        modalLongitude.value = coordinates.longitude;
+                        
+                        // 更新显示
+                        updatePhotosDisplay();
+                        
+                        // 重置文件输入
+                        photoInput.value = '';
+                        
+                        showToast('Photo selected with location');
+                    }
+                };
+                
+                photoInput.click();
+            } catch (error) {
+                console.error('Photo selection error:', error);
+                showToast(`Error: ${error}`, false);
+                // 仍然允许在没有坐标的情况下选择照片
+                photoInput.click();
+            }
+        }
+
+        // 编辑项目名称
+        function editItemName() {
+            if (!contextMenuTarget) return;
+            
+            const categoryId = contextMenuTarget.getAttribute('data-category-id');
+            const itemId = contextMenuTarget.getAttribute('data-item-id');
+            const itemIndex = parseInt(contextMenuTarget.getAttribute('data-item-index'));
+            
+            // 查找分类和项目
+            const category = checklistData.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            const item = category.items[itemIndex];
+            if (!item) return;
+            
+            // 设置输入值
+            itemNameInput.value = item.text;
+            itemNameInput.dataset.categoryId = categoryId;
+            itemNameInput.dataset.itemId = itemId;
+            itemNameInput.dataset.itemIndex = itemIndex;
+            
+            // 显示模态框
+            editItemModal.classList.remove('opacity-0', 'pointer-events-none');
+            editItemModal.querySelector('div').classList.remove('scale-95');
+            editItemModal.querySelector('div').classList.add('scale-100');
+            
+            // 关闭上下文菜单
+            contextMenu.classList.add('hidden');
+            
+            // 聚焦输入框
+            setTimeout(() => {
+                itemNameInput.focus();
+            }, 300);
+        }
+
+        // 保存编辑的项目名称
+        function saveEditedItemName() {
+            const categoryId = itemNameInput.dataset.categoryId;
+            const itemIndex = parseInt(itemNameInput.dataset.itemIndex);
+            const newName = itemNameInput.value.trim();
+            
+            if (!newName) {
+                showToast('Item name cannot be empty', false);
+                return;
+            }
+            
+            // 查找分类并更新项目
+            const category = checklistData.find(cat => cat.id === categoryId);
+            if (category && category.items[itemIndex]) {
+                category.items[itemIndex].text = newName;
+                
+                // 刷新检查项列表
+                initializeChecklist();
+                
+                // 关闭模态框
+                closeEditItemModal();
+                
+                showToast('Item updated successfully');
+            }
+        }
+
+        // 关闭编辑项目模态框
+        function closeEditItemModal() {
+            editItemModal.classList.add('opacity-0', 'pointer-events-none');
+            editItemModal.querySelector('div').classList.remove('scale-100');
+            editItemModal.querySelector('div').classList.add('scale-95');
+            itemNameInput.value = '';
+        }
+
+        // 添加新项目
+        function addNewItem() {
+            if (!contextMenuTarget) return;
+            
+            const categoryId = contextMenuTarget.getAttribute('data-category-id');
+            const itemIndex = parseInt(contextMenuTarget.getAttribute('data-item-index'));
+            
+            // 设置表单数据
+            newItemNameInput.value = '';
+            newItemNameInput.dataset.categoryId = categoryId;
+            newItemNameInput.dataset.itemIndex = itemIndex;
+            
+            // 显示模态框
+            addItemModal.classList.remove('opacity-0', 'pointer-events-none');
+            addItemModal.querySelector('div').classList.remove('scale-95');
+            addItemModal.querySelector('div').classList.add('scale-100');
+            
+            // 关闭上下文菜单
+            contextMenu.classList.add('hidden');
+            
+            // 聚焦输入框
+            setTimeout(() => {
+                newItemNameInput.focus();
+            }, 300);
+        }
+
+        // 保存新项目
+        function saveNewItem() {
+            const categoryId = newItemNameInput.dataset.categoryId;
+            const referenceIndex = parseInt(newItemNameInput.dataset.itemIndex);
+            const itemName = newItemNameInput.value.trim();
+            
+            if (!itemName) {
+                showToast('Item name cannot be empty', false);
+                return;
+            }
+            
+            // 查找分类
+            const category = checklistData.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            // 确定插入位置
+            let insertIndex;
+            switch(newItemPositionSelect.value) {
+                case 'top':
+                    insertIndex = 0;
+                    break;
+                case 'after':
+                    insertIndex = referenceIndex + 1;
+                    break;
+                case 'bottom':
+                default:
+                    insertIndex = category.items.length;
+                    break;
+            }
+            
+            // 创建新项目
+            const newItem = {
+                id: generateId('item'),
+                text: itemName
+            };
+            
+            // 插入到数组
+            category.items.splice(insertIndex, 0, newItem);
+            
+            // 刷新检查项列表
+            initializeChecklist();
+            
+            // 关闭模态框
+            closeAddItemModal();
+            
+            showToast('New item added');
+        }
+
+        // 关闭添加项目模态框
+        function closeAddItemModal() {
+            addItemModal.classList.add('opacity-0', 'pointer-events-none');
+            addItemModal.querySelector('div').classList.remove('scale-100');
+            addItemModal.querySelector('div').classList.add('scale-95');
+            newItemNameInput.value = '';
+        }
+
+        // 向上移动项目
+        function moveItemUp() {
+            if (!contextMenuTarget) return;
+            
+            const categoryId = contextMenuTarget.getAttribute('data-category-id');
+            const itemIndex = parseInt(contextMenuTarget.getAttribute('data-item-index'));
+            
+            // 如果已经在顶部，不能上移
+            if (itemIndex === 0) return;
+            
+            // 查找分类
+            const category = checklistData.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            // 与前一项交换
+            const temp = category.items[itemIndex - 1];
+            category.items[itemIndex - 1] = category.items[itemIndex];
+            category.items[itemIndex] = temp;
+            
+            // 刷新检查项列表
+            initializeChecklist();
+            
+            // 关闭上下文菜单
+            contextMenu.classList.add('hidden');
+            
+            showToast('Item moved up');
+        }
+
+        // 向下移动项目
+        function moveItemDown() {
+            if (!contextMenuTarget) return;
+            
+            const categoryId = contextMenuTarget.getAttribute('data-category-id');
+            const itemIndex = parseInt(contextMenuTarget.getAttribute('data-item-index'));
+            
+            // 查找分类
+            const category = checklistData.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            // 如果已经在底部，不能下移
+            if (itemIndex === category.items.length - 1) return;
+            
+            // 与后一项交换
+            const temp = category.items[itemIndex + 1];
+            category.items[itemIndex + 1] = category.items[itemIndex];
+            category.items[itemIndex] = temp;
+            
+            // 刷新检查项列表
+            initializeChecklist();
+            
+            // 关闭上下文菜单
+            contextMenu.classList.add('hidden');
+            
+            showToast('Item moved down');
+        }
+
+        // 删除项目
+        function deleteItem() {
+            if (!contextMenuTarget) return;
+            
+            const categoryId = contextMenuTarget.getAttribute('data-category-id');
+            const itemId = contextMenuTarget.getAttribute('data-item-id');
+            const itemIndex = parseInt(contextMenuTarget.getAttribute('data-item-index'));
+            
+            // 确认删除
+            if (!confirm('Are you sure you want to delete this item? All associated notes will also be deleted.')) {
+                return;
+            }
+            
+            // 查找分类
+            const category = checklistData.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            // 从分类中移除项目
+            category.items.splice(itemIndex, 1);
+            
+            // 移除相关笔记
+            if (notes[itemId]) {
+                delete notes[itemId];
+            }
+            
+            // 刷新检查项列表
+            initializeChecklist();
+            
+            // 关闭上下文菜单
+            contextMenu.classList.add('hidden');
+            
+            showToast('Item deleted');
+        }
+
+        // 打开添加分类模态框
+        function openAddCategoryModal() {
+            newCategoryNameInput.value = '';
+            newCategoryAssignedSelect.value = '';
+            newCategoryAssignedInput.value = '';
+            newCategoryAssignedInput.classList.add('hidden');
+            newCategoryIconSelect.value = 'fa-tree';
+            
+            // 更新人员选择下拉框
+            updateStaffSelectOptions();
+            
+            // 显示模态框
+            addCategoryModal.classList.remove('opacity-0', 'pointer-events-none');
+            addCategoryModal.querySelector('div').classList.remove('scale-95');
+            addCategoryModal.querySelector('div').classList.add('scale-100');
+            
+            // 聚焦输入框
+            setTimeout(() => {
+                newCategoryNameInput.focus();
+            }, 300);
+        }
+
+        // 切换到自定义分配输入
+        function toggleCustomAssignedInput() {
+            newCategoryAssignedInput.classList.toggle('hidden');
+            if (!newCategoryAssignedInput.classList.contains('hidden')) {
+                newCategoryAssignedInput.focus();
+                newCategoryAssignedSelect.value = '';
+            }
+        }
+
+        // 保存新分类
+        function saveNewCategory() {
+            const categoryName = newCategoryNameInput.value.trim();
+            let assignedTo = newCategoryAssignedSelect.value;
+            const icon = newCategoryIconSelect.value;
+            
+            // 检查是否使用自定义输入
+            if (!assignedTo && !newCategoryAssignedInput.classList.contains('hidden')) {
+                assignedTo = newCategoryAssignedInput.value.trim();
+            }
+            
+            if (!categoryName) {
+                showToast('Category name cannot be empty', false);
+                return;
+            }
+            
+            // 创建新分类
+            const newCategory = {
+                id: generateId('cat'),
+                title: categoryName,
+                icon: icon,
+                assignedTo: assignedTo || 'Not assigned',
+                items: []
+            };
+            
+            // 添加到检查项数据
+            checklistData.push(newCategory);
+            
+            // 刷新检查项列表
+            initializeChecklist();
+            
+            // 关闭模态框
+            closeAddCategoryModal();
+            
+            showToast('New category added');
+        }
+
+        // 关闭添加分类模态框
+        function closeAddCategoryModal() {
+            addCategoryModal.classList.add('opacity-0', 'pointer-events-none');
+            addCategoryModal.querySelector('div').classList.remove('scale-100');
+            addCategoryModal.querySelector('div').classList.add('scale-95');
+        }
+
+        // 打开人员库模态框
+        function openStaffLibraryModal() {
+            initializeStaffLibrary();
+            
+            // 显示模态框
+            staffLibraryModal.classList.remove('opacity-0', 'pointer-events-none');
+            staffLibraryModal.querySelector('div').classList.remove('scale-95');
+            staffLibraryModal.querySelector('div').classList.add('scale-100');
+            
+            // 聚焦输入框
+            setTimeout(() => {
+                newStaffNameInput.focus();
+            }, 300);
+        }
+
+        // 关闭人员库模态框
+        function closeStaffLibraryModal() {
+            staffLibraryModal.classList.add('opacity-0', 'pointer-events-none');
+            staffLibraryModal.querySelector('div').classList.remove('scale-100');
+            staffLibraryModal.querySelector('div').classList.add('scale-95');
+            newStaffNameInput.value = '';
+        }
+
+        // 添加新人员
+        function addNewStaff() {
+            const staffName = newStaffNameInput.value.trim();
+            
+            if (!staffName) {
+                showToast('Staff name cannot be empty', false);
+                return;
+            }
+            
+            // 检查是否已存在
+            if (staffLibrary.includes(staffName)) {
+                showToast('This staff member already exists', false);
+                return;
+            }
+            
+            // 添加到人员库
+            staffLibrary.push(staffName);
+            
+            // 重新初始化人员库显示
+            initializeStaffLibrary();
+            updateStaffSelectOptions();
+            
+            // 清空输入
+            newStaffNameInput.value = '';
+            newStaffNameInput.focus();
+            
+            showToast('Staff member added');
+        }
+
+        // 保存数据到本地存储
+        function saveData() {
+            // 准备数据对象 - 为提高存储效率，排除完整照片数据
+            const data = {
+                checklistData,
+                staffLibrary,
+                notes: Object.fromEntries(
+                    Object.entries(notes).map(([id, noteList]) => [
+                        id, 
+                        noteList.map(note => ({
+                            ...note,
+                            // 为存储保存照片的较小版本
+                            photos: note.photos?.map(photo => ({
+                                ...photo,
+                                dataUrl: photo.dataUrl.substring(0, 1000) + '...' // 截断大数据
+                            }))
+                        }))
+                    ])
+                ),
+                savedAt: new Date().toISOString()
+            };
+            
+            try {
+                // 保存到本地存储
+                localStorage.setItem('urbanObservationDataStaff', JSON.stringify(data));
+                showToast('Data saved successfully');
+            } catch (error) {
+                console.error('Save error:', error);
+                showToast('Failed to save data. Too many photos?', false);
+            }
+        }
+
+        // 从本地存储加载数据
+        function loadData() {
+            const savedData = localStorage.getItem('urbanObservationDataStaff');
+            if (!savedData) return;
+            
+            try {
+                const data = JSON.parse(savedData);
+                
+                // 加载检查项数据
+                if (data.checklistData) {
+                    checklistData = data.checklistData;
+                }
+                
+                // 加载人员库
+                if (data.staffLibrary) {
+                    staffLibrary = data.staffLibrary;
+                }
+                
+                // 加载笔记
+                if (data.notes) {
+                    notes = data.notes;
+                }
+                
+                // 刷新检查项列表
+                initializeChecklist();
+                
+                showToast('Data loaded successfully');
+            } catch (error) {
+                console.error('Load error:', error);
+                showToast('Failed to load saved data', false);
+            }
+        }
+
+        // 导出数据为JSON
+        function exportData() {
+            // 收集包含照片的完整数据
+            const data = {
+                checklistData,
+                staffLibrary,
+                notes,
+                exportedAt: new Date().toISOString()
+            };
+            
+            try {
+                // 创建JSON blob
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                // 创建下载链接
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `urban-observation-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 0);
+                
+                showToast('Data exported successfully');
+            } catch (error) {
+                console.error('Export error:', error);
+                showToast('Failed to export data. Too many photos?', false);
+            }
+        }
+
+        // 事件监听器
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeChecklist();
+            loadData(); // 页面加载时尝试加载保存的数据
+            
+            // 笔记模态框监听器
+            closeModal.addEventListener('click', closeNoteEditor);
+            saveNoteBtn.addEventListener('click', saveNote);
+            deleteNoteBtn.addEventListener('click', deleteNote);
+            
+            // 照片功能
+            takePhotoBtn.addEventListener('click', openCamera);
+            selectPhotoBtn.addEventListener('click', selectPhoto);
+            closeCamera.addEventListener('click', closeCameraModal);
+            capturePhotoBtn.addEventListener('click', capturePhoto);
+            
+            // 上下文菜单操作
+            menuEdit.addEventListener('click', editItemName);
+            menuAdd.addEventListener('click', addNewItem);
+            menuMoveUp.addEventListener('click', moveItemUp);
+            menuMoveDown.addEventListener('click', moveItemDown);
+            menuDelete.addEventListener('click', deleteItem);
+            
+            // 编辑项目模态框
+            closeEditModal.addEventListener('click', closeEditItemModal);
+            saveEditBtn.addEventListener('click', saveEditedItemName);
+            cancelEditBtn.addEventListener('click', closeEditItemModal);
+            
+            // 添加项目模态框
+            closeAddModal.addEventListener('click', closeAddItemModal);
+            saveAddBtn.addEventListener('click', saveNewItem);
+            cancelAddBtn.addEventListener('click', closeAddItemModal);
+            
+            // 添加分类功能
+            addCategoryBtn.addEventListener('click', openAddCategoryModal);
+            closeCategoryModal.addEventListener('click', closeAddCategoryModal);
+            saveCategoryBtn.addEventListener('click', saveNewCategory);
+            cancelCategoryBtn.addEventListener('click', closeAddCategoryModal);
+            newCategoryAssignedCustom.addEventListener('click', toggleCustomAssignedInput);
+            
+            // 人员库功能
+            staffLibraryBtn.addEventListener('click', openStaffLibraryModal);
+            closeStaffModal.addEventListener('click', closeStaffLibraryModal);
+            closeStaffBtn.addEventListener('click', closeStaffLibraryModal);
+            addStaffBtn.addEventListener('click', addNewStaff);
+            newStaffNameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    addNewStaff();
+                }
+            });
+            
+            // 点击模态框外部关闭
+            noteModal.addEventListener('click', (e) => {
+                if (e.target === noteModal) {
+                    closeNoteEditor();
+                }
+            });
+            
+            cameraModal.addEventListener('click', (e) => {
+                if (e.target === cameraModal) {
+                    closeCameraModal();
+                }
+            });
+            
+            editItemModal.addEventListener('click', (e) => {
+                if (e.target === editItemModal) {
+                    closeEditItemModal();
+                }
+            });
+            
+            addItemModal.addEventListener('click', (e) => {
+                if (e.target === addItemModal) {
+                    closeAddItemModal();
+                }
+            });
+            
+            addCategoryModal.addEventListener('click', (e) => {
+                if (e.target === addCategoryModal) {
+                    closeAddCategoryModal();
+                }
+            });
+            
+            staffLibraryModal.addEventListener('click', (e) => {
+                if (e.target === staffLibraryModal) {
+                    closeStaffLibraryModal();
+                }
+            });
+            
+            // 保存和导出按钮
+            saveBtn.addEventListener('click', saveData);
+            exportBtn.addEventListener('click', exportData);
+            
+            // 允许使用Ctrl+Enter保存笔记
+            modalNoteContent.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    saveNote();
+                }
+            });
+
+            // 使用Escape键关闭模态框
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (!noteModal.classList.contains('pointer-events-none')) {
+                        closeNoteEditor();
+                    }
+                    if (!cameraModal.classList.contains('pointer-events-none')) {
+                        closeCameraModal();
+                    }
+                    if (!editItemModal.classList.contains('pointer-events-none')) {
+                        closeEditItemModal();
+                    }
+                    if (!addItemModal.classList.contains('pointer-events-none')) {
+                        closeAddItemModal();
+                    }
+                    if (!addCategoryModal.classList.contains('pointer-events-none')) {
+                        closeAddCategoryModal();
+                    }
+                    if (!staffLibraryModal.classList.contains('pointer-events-none')) {
+                        closeStaffLibraryModal();
+                    }
+                    contextMenu.classList.add('hidden');
+                    contextMenuTarget = null;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
